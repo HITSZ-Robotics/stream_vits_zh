@@ -65,63 +65,105 @@ python stream_example.py
 
 ---
 
-## **📌 贡献：提供流式 VITS 中文 TTS 接口**
 
-本项目提供了一个能 **流式输出中文** 的 VITS 模型接口，适用于**低延迟 TTS** 应用，并可作为 **Coqui-TTS** 的补充。
+### **VITSModel 使用示例**
 
-### **🔧 核心接口：`stream_vits_zh.py`**
+#### 1️⃣ 初始化模型
+您可以通过以下方式初始化 `VITSModel`，并加载必要的配置与预训练模型。
 
 ```python
-def inference_stream(config: str, model: str, txt: str):
-    """
-    进行 VITS 推理，流式返回音频块。
-    
-    Args:
-        config (str): 配置文件路径。
-        model (str): 训练模型路径。
-        txt (str): 输入文本。
-    
-    Yields:
-        np.ndarray: 单个流式音频块。
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    bert_path = os.path.join(os.path.dirname(__file__), 'bert')
-    tts_front = VITS_PinYin(bert_path, device)
-    hps = utils.get_hparams_from_file(config)
-    
-    net_g = utils.load_class(hps.train.eval_class)(
-        len(symbols),
-        hps.data.filter_length // 2 + 1,
-        hps.train.segment_size // hps.data.hop_length,
-        **hps.model)
-    utils.load_model(model, net_g)
-    net_g.eval()
-    net_g.to(device)
-    
-    phonemes, char_embeds = tts_front.chinese_to_phonemes(txt)
-    input_ids = cleaned_text_to_sequence(phonemes)
-    buffer_queue = queue.Queue(maxsize=5)
-    stop_event = threading.Event()
-    
-    def producer():
-        with torch.no_grad():
-            x_tst = torch.LongTensor(input_ids).unsqueeze(0).to(device)
-            x_tst_lengths = torch.LongTensor([len(input_ids)]).to(device)
-            x_tst_prosody = torch.FloatTensor(char_embeds).unsqueeze(0).to(device)
-            
-            for chunk in net_g.inference_stream(x_tst, x_tst_lengths, x_tst_prosody, noise_scale=0.5, length_scale=1):
-                buffer_queue.put(chunk)
-        stop_event.set()
-    
-    producer_thread = threading.Thread(target=producer)
-    producer_thread.start()
-    
-    while not (stop_event.is_set() and buffer_queue.empty()):
-        chunk = buffer_queue.get()
-        yield chunk
+from stream_vits_zh import VITSModel
+
+model = VITSModel(config_path='path/to/config.json', model_path='path/to/vits_bert_model.pth')
+```
+
+#### 2️⃣ 进行推理
+使用 `inference_stream` 方法输入文本并生成音频。
+
+```python
+txt = "这是一段中文语音合成的测试文本。"
+for audio_chunk in model.inference_stream(txt):
+    # 使用 PyAudio 播放音频块
+    stream.write(audio_chunk.tobytes())
+```
+
+在上述代码中，`audio_chunk` 是一个逐步生成的音频块，可以实时播放。
+
+### **完整的 VITSModel 类定义**:
+
+```python
+class VITSModel:
+    def __init__(self, config_path: str, model_path: str):
+        """
+        初始化 VITS 模型，加载配置文件和预训练模型。
+        
+        Args:
+            config_path (str): 配置文件路径。
+            model_path (str): 训练好的模型路径。
+        """
+        # 加载配置文件和模型
+        self.config = utils.get_hparams_from_file(config_path)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.net_g = self._load_model(model_path)
+        
+    def _load_model(self, model_path: str):
+        """
+        加载 VITS 模型。
+        
+        Args:
+            model_path (str): 模型文件路径。
+        
+        Returns:
+            torch.nn.Module: 加载的模型。
+        """
+        # 加载模型
+        model_class = utils.load_class(self.config.train.eval_class)
+        model = model_class(len(symbols), self.config.data.filter_length // 2 + 1, 
+                            self.config.train.segment_size // self.config.data.hop_length, 
+                            **self.config.model)
+        utils.load_model(model_path, model)
+        model.eval()
+        model.to(self.device)
+        return model
+
+    def inference_stream(self, txt: str):
+        """
+        流式返回音频块。
+        
+        Args:
+            txt (str): 输入的文本。
+        
+        Yields:
+            np.ndarray: 逐步生成的音频块。
+        """
+        # 生成音频块的逻辑（略）
+        phonemes, char_embeds = self._text_to_phonemes(txt)
+        input_ids = cleaned_text_to_sequence(phonemes)
+        buffer_queue = queue.Queue(maxsize=5)
+        stop_event = threading.Event()
+
+        def producer():
+            with torch.no_grad():
+                x_tst = torch.LongTensor(input_ids).unsqueeze(0).to(self.device)
+                x_tst_lengths = torch.LongTensor([len(input_ids)]).to(self.device)
+                x_tst_prosody = torch.FloatTensor(char_embeds).unsqueeze(0).to(self.device)
+
+                for chunk in self.net_g.inference_stream(x_tst, x_tst_lengths, x_tst_prosody):
+                    buffer_queue.put(chunk)
+            stop_event.set()
+
+        # 开启线程进行推理
+        producer_thread = threading.Thread(target=producer)
+        producer_thread.start()
+
+        # 持续输出音频块
+        while not (stop_event.is_set() and buffer_queue.empty()):
+            chunk = buffer_queue.get()
+            yield chunk
 ```
 
 ---
+
 
 ## **🌟 欢迎 Star & 贡献**
 
