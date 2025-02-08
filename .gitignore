@@ -1,0 +1,13 @@
+# 忽略 bert 目录
+bert/prosody_model.pt
+
+# 忽略 monotonic_align/build 目录
+monotonic_align/build/
+
+# 忽略 vits_bert_model.pth 文件
+vits_bert_model.pth
+
+__pycache__/
+
+
+*.pt
