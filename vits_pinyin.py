@@ -7,7 +7,7 @@ from pypinyin.core import load_phrases_dict
 
 from text import pinyin_dict
 from bert import TTSProsody
-
+from pathlib import Path
 
 def is_chinese(uchar):
     if uchar >= u'\u4e00' and uchar <= u'\u9fa5':
@@ -31,7 +31,9 @@ def clean_chinese(text: str):
 
 def load_pinyin_dict():
     my_dict={}
-    with open("./text/pinyin-local.txt", "r", encoding='utf-8') as f:
+    script_dir = Path(__file__).parent
+    file_path = script_dir / "text" / "pinyin-local.txt"
+    with open(file_path, "r", encoding='utf-8') as f:
         content = f.readlines()
         for line in content:
             cuts = line.strip().split()
