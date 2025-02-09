@@ -42,10 +42,10 @@ class VITSModel:
     def inference_stream(self, text: str):
         """
         进行 VITS 推理，流式返回音频块。
-        
+
         Args:
             text (str): 输入文本。
-        
+
         Yields:
             np.ndarray: 单个流式音频块。
         """
@@ -54,21 +54,31 @@ class VITSModel:
         input_ids = cleaned_text_to_sequence(phonemes)
 
         # 缓冲区队列
-        buffer_queue = queue.Queue(maxsize=5)
+        buffer_queue = queue.Queue(maxsize=8)
         stop_event = threading.Event()
 
         def producer():
-            with torch.no_grad():
-                x_tst = torch.LongTensor(input_ids).unsqueeze(0).to(self.device)
-                x_tst_lengths = torch.LongTensor([len(input_ids)]).to(self.device)
-                x_tst_prosody = torch.FloatTensor(char_embeds).unsqueeze(0).to(self.device)
-                
-                for chunk in self.net_g.inference_stream(x_tst, x_tst_lengths, x_tst_prosody, noise_scale=0.5, length_scale=1):
-                    buffer_queue.put(chunk)
-            stop_event.set()
-        
-        producer_thread = threading.Thread(target=producer)
+            try:
+                with torch.no_grad():
+                    x_tst = torch.LongTensor(input_ids).unsqueeze(0).to(self.device)
+                    x_tst_lengths = torch.LongTensor([len(input_ids)]).to(self.device)
+                    x_tst_prosody = torch.FloatTensor(char_embeds).unsqueeze(0).to(self.device)
+
+                    for chunk in self.net_g.inference_stream(x_tst, x_tst_lengths, x_tst_prosody, noise_scale=0.5, length_scale=1):
+                        buffer_queue.put(chunk)
+            except Exception as e:
+                print(f"Producer thread error: {e}")
+            finally:
+                stop_event.set()  # 线程结束时标记
+
+        # 设置守护线程，避免阻塞退出
+        producer_thread = threading.Thread(target=producer, daemon=True)
         producer_thread.start()
 
         while not (stop_event.is_set() and buffer_queue.empty()):
-            yield buffer_queue.get()
+            try:
+                yield buffer_queue.get(timeout=1)  # 设置超时，避免阻塞
+            except queue.Empty:
+                continue  # 如果队列为空，继续检查 stop_event
+
+        print("Inference stream finished.")

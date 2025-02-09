@@ -1011,15 +1011,15 @@ class SynthesizerEval(nn.Module):
 
         print('Frame size:', len_z)
 
-        # **Step 3: 判断是否需要流式**
-        if len_z < 100:
-            print('No need for streaming')
-            z = self.flow(z_p, y_mask, g=g, reverse=True)
-            one_time_wav = self.dec(z, g=g)[0, 0].data.cpu().float().numpy()
-
-            for chunk in np.array_split(one_time_wav, 10):  # 分割成 10 份
-                yield chunk  # 确保流式返回
-            return
+        ## **Step 3: 判断是否需要流式**
+        #if len_z < 100:
+        #    print('No need for streaming')
+        #    z = self.flow(z_p, y_mask, g=g, reverse=True)
+        #    one_time_wav = self.dec(z, g=g)[0, 0].data.cpu().float().numpy()
+#
+        #    for chunk in np.array_split(one_time_wav, 10):  # 分割成 10 份
+        #        yield chunk  # 确保流式返回
+        #    return
 
         # **Step 4: 流式解码参数**
         hop_length = 256  # 每帧采样点数
