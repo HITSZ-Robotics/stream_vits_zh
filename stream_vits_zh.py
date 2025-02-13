@@ -54,7 +54,7 @@ class VITSModel:
         input_ids = cleaned_text_to_sequence(phonemes)
 
         # 缓冲区队列
-        buffer_queue = queue.Queue(maxsize=4)
+        buffer_queue = queue.Queue(maxsize=6)
         stop_event = threading.Event()
 
         def producer():
@@ -65,9 +65,9 @@ class VITSModel:
                     x_tst_prosody = torch.FloatTensor(char_embeds).unsqueeze(0).to(self.device)
 
                     for chunk in self.net_g.inference_stream(x_tst, x_tst_lengths, x_tst_prosody, noise_scale=0.5, length_scale=1):
-                        while buffer_queue.qsize() >= 4:  # 设定最大缓冲大小（比如 4）
+                        while buffer_queue.qsize() >= 6:  # 设定最大缓冲大小（比如 4）
                             time.sleep(0.05)  # 让生产者稍作等待，防止过载
-                            print("wait")
+                            #print("wait")
                         buffer_queue.put(chunk)
             except Exception as e:
                 print(f"Producer thread error: {e}")
