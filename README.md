@@ -40,7 +40,7 @@ pip install -r requirements.txt
 ### **3️⃣ 安装 `monotonic_align` 依赖**
 ```bash
 cd monotonic_align
-python setup.py build_ext --inplace
+cythonize -i core.pyx
 cd ..
 ```
 
