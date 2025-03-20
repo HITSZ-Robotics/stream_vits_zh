@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/788da5c5-ff62-4e09-bdfd-e33c240e1cda
 
 ### **1️⃣ 克隆项目**
 ```bash
-git clone https://github.com/zzl410/stream_vits_zh.git
+git clone https://github.com/HITSZ-Robotics/stream_vits_zh.git
 cd stream_vits_zh
 ```
 
